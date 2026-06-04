@@ -149,37 +149,187 @@ def extract_most_read(limit: int = 10):
     return candidates[:limit]
 
 
+from datetime import datetime
+
 def build_email_html(data: dict) -> str:
     today = datetime.now().strftime("%d/%m/%Y")
+    
+    # Sử dụng icon thanh lịch hơn
+    section_icons = {
+        "5 bài Kinh tế vĩ mô - Đầu tư": "📊",
+        "5 bài Tài chính quốc tế": "🌐",
+        "10 bài Tin mới nhất": "⚡",
+        "10 bài Đọc nhiều nhất": "⭐",
+    }
 
+    # Bắt đầu file HTML
     html = f"""
+    <!DOCTYPE html>
     <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>Điểm báo CafeF sáng {today}</h2>
-        <p>Tổng hợp tự động các mục: Kinh tế vĩ mô - Đầu tư, Tài chính quốc tế, Tin mới nhất và Đọc nhiều nhất.</p>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="
+        margin: 0;
+        padding: 0;
+        background-color: #F3F4F6;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #1F2937;
+        -webkit-font-smoothing: antialiased;
+    ">
+        <div style="
+            max-width: 600px; /* Thu gọn lại 600px để đọc trên điện thoại mượt hơn */
+            margin: 0 auto;
+            padding: 30px 15px;
+        ">
+            <!-- Header (Phong cách Thư ký) -->
+            <div style="
+                background-color: #0F172A; /* Tone Navy trầm, sang trọng */
+                border-radius: 12px 12px 0 0;
+                padding: 35px 30px;
+                text-align: left;
+            ">
+                <div style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    letter-spacing: 1.5px;
+                    text-transform: uppercase;
+                    color: #94A3B8;
+                    margin-bottom: 10px;
+                ">
+                    CafeF Daily Briefing • {today}
+                </div>
+                <h1 style="
+                    margin: 0;
+                    font-size: 26px;
+                    line-height: 1.3;
+                    color: #FFFFFF;
+                    font-weight: 700;
+                ">
+                    Điểm báo Tài chính
+                </h1>
+            </div>
+
+            <!-- Lời chào & Tóm tắt -->
+            <div style="
+                background-color: #FFFFFF;
+                padding: 25px 30px;
+                border-left: 1px solid #E5E7EB;
+                border-right: 1px solid #E5E7EB;
+            ">
+                <p style="
+                    margin: 0;
+                    font-size: 15px;
+                    color: #4B5563;
+                    line-height: 1.6;
+                ">
+                    <strong>Chào Hạnh Nhân,</strong><br><br>
+                    Dưới đây là các tin tức vĩ mô, biến động thị trường và tài chính quốc tế đáng chú ý nhất được tổng hợp từ CafeF sáng nay.
+                </p>
+            </div>
     """
 
+    # Vòng lặp cho các section
     for section, articles in data.items():
-        html += f"<h3>{section}</h3>"
+        icon = section_icons.get(section, "📌")
+
+        html += f"""
+            <!-- Khối Section -->
+            <div style="
+                background-color: #FFFFFF;
+                padding: 0 30px 20px 30px;
+                border-left: 1px solid #E5E7EB;
+                border-right: 1px solid #E5E7EB;
+            ">
+                <div style="
+                    border-bottom: 2px solid #F3F4F6;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                    margin-top: 15px;
+                ">
+                    <h2 style="
+                        margin: 0;
+                        font-size: 17px;
+                        color: #111827;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    ">
+                        {icon} {section}
+                    </h2>
+                </div>
+        """
 
         if not articles:
-            html += "<p><i>Không lấy được dữ liệu cho mục này.</i></p>"
-            continue
-
-        html += "<ol>"
-        for article in articles:
-            html += f"""
-            <li>
-                <a href="{article['url']}">{article['title']}</a>
-            </li>
+            html += """
+                <p style="font-size: 14px; color: #9CA3AF; font-style: italic; margin: 0;">
+                    Không có bản tin nào trong mục này sáng nay.
+                </p>
             """
-        html += "</ol>"
+        else:
+            # Dùng Table để số thứ tự và tiêu đề bài báo luôn thẳng hàng (chuẩn email layout)
+            html += '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">'
+            
+            for idx, article in enumerate(articles, start=1):
+                # Format số thành 01, 02, 03... cho sang trọng hơn
+                idx_str = f"{idx:02d}" 
+                
+                html += f"""
+                    <tr>
+                        <td valign="top" style="
+                            width: 32px;
+                            padding-bottom: 18px;
+                            padding-top: 2px;
+                        ">
+                            <span style="
+                                font-size: 14px;
+                                font-weight: 700;
+                                color: #CBD5E1;
+                            ">{idx_str}.</span>
+                        </td>
+                        <td valign="top" style="padding-bottom: 18px;">
+                            <a href="{article['url']}" target="_blank" style="
+                                color: #1F2937;
+                                text-decoration: none;
+                                font-size: 15px;
+                                font-weight: 600;
+                                line-height: 1.5;
+                                display: block;
+                            ">
+                                {article['title']}
+                            </a>
+                        </td>
+                    </tr>
+                """
+            html += '</table>'
 
+        html += """
+            </div>
+        """
+
+    # Footer
     html += """
-        <hr>
-        <p style="font-size: 12px; color: gray;">
-            Email này được gửi tự động bằng Python.
-        </p>
+            <!-- Footer -->
+            <div style="
+                background-color: #F8FAFC;
+                border: 1px solid #E5E7EB;
+                border-top: none;
+                border-radius: 0 0 12px 12px;
+                padding: 20px 30px;
+                text-align: center;
+            ">
+                <p style="
+                    margin: 0;
+                    color: #94A3B8;
+                    font-size: 12px;
+                    line-height: 1.6;
+                ">
+                    Automated Briefing by Python & GitHub Actions<br>
+                    Data source: CafeF.vn
+                </p>
+            </div>
+        </div>
     </body>
     </html>
     """
