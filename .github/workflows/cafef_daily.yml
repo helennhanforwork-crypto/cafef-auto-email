@@ -1,0 +1,33 @@
+name: CafeF Daily Email
+
+on:
+  schedule:
+    - cron: "0 1 * * *"   # 8h sáng Việt Nam
+    - cron: "0 12 * * *"  # 7h tối Việt Nam
+  workflow_dispatch:
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 python-dotenv
+
+      - name: Run script
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SMTP_SERVER: smtp.gmail.com
+          SMTP_PORT: 587
+        run: python cafef_daily_email.py
