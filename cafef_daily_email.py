@@ -34,7 +34,13 @@ def clean_text(text: str) -> str:
 
 
 def fetch_html(url: str) -> BeautifulSoup:
-    def extract_article_summary(article_url: str) -> str:
+    response = requests.get(url, headers=HEADERS, timeout=20)
+    response.raise_for_status()
+    response.encoding = "utf-8"
+    return BeautifulSoup(response.text, "html.parser")
+
+
+def extract_article_summary(article_url: str) -> str:
     """
     Mở từng bài CafeF để lấy sapo/mô tả ngắn.
     Nếu không lấy được thì trả về chuỗi rỗng.
@@ -63,13 +69,6 @@ def fetch_html(url: str) -> BeautifulSoup:
         return ""
 
     return ""
-    response = requests.get(url, headers=HEADERS, timeout=20)
-    response.raise_for_status()
-    response.encoding = "utf-8"
-    return BeautifulSoup(response.text, "html.parser")
-    
-
-
 def extract_articles_from_page(url: str, limit: int = 10):
     """
     Lấy danh sách bài viết từ một trang CafeF.
@@ -181,8 +180,6 @@ def extract_most_read(limit: int = 10):
 
     return candidates[:limit]
 
-
-from datetime import datetime
 
 from datetime import datetime
 
@@ -370,3 +367,58 @@ def build_email_html(data: dict) -> str:
     """
 
     return html
+def send_email(subject: str, html_body: str):
+    load_dotenv()
+
+    email_from = os.getenv("EMAIL_FROM")
+    email_password = os.getenv("EMAIL_PASSWORD")
+    email_to = os.getenv("EMAIL_TO")
+    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+
+    if not all([email_from, email_password, email_to]):
+        raise ValueError("Thiếu EMAIL_FROM, EMAIL_PASSWORD hoặc EMAIL_TO")
+
+    message = MIMEMultipart("alternative")
+    message["From"] = email_from
+    message["To"] = email_to
+    message["Subject"] = subject
+
+    message.attach(MIMEText(html_body, "html", "utf-8"))
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(email_from, email_password)
+        server.sendmail(email_from, email_to, message.as_string())
+
+
+def main():
+    data = {
+        "5 bài Kinh tế vĩ mô - Đầu tư": extract_articles_from_page(
+            PAGES["Kinh tế vĩ mô - Đầu tư"],
+            limit=5
+        ),
+        "5 bài Tài chính quốc tế": extract_articles_from_page(
+            PAGES["Tài chính quốc tế"],
+            limit=5
+        ),
+        "10 bài Tin mới nhất": extract_articles_from_page(
+            PAGES["Tin mới nhất"],
+            limit=10
+        ),
+        "10 bài Đọc nhiều nhất": extract_most_read(
+            limit=10
+        )
+    }
+
+    today = datetime.now().strftime("%d/%m/%Y")
+    subject = f"Điểm báo CafeF - {today}"
+
+    html_body = build_email_html(data)
+    send_email(subject, html_body)
+
+    print("Đã gửi email điểm báo CafeF thành công.")
+
+
+if __name__ == "__main__":
+    main()
