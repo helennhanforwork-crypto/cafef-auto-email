@@ -34,10 +34,40 @@ def clean_text(text: str) -> str:
 
 
 def fetch_html(url: str) -> BeautifulSoup:
+    def extract_article_summary(article_url: str) -> str:
+    """
+    Mở từng bài CafeF để lấy sapo/mô tả ngắn.
+    Nếu không lấy được thì trả về chuỗi rỗng.
+    """
+    try:
+        soup = fetch_html(article_url)
+
+        # Cách 1: lấy meta description
+        meta_desc = soup.find("meta", attrs={"name": "description"})
+        if meta_desc and meta_desc.get("content"):
+            return clean_text(meta_desc.get("content"))[:280]
+
+        # Cách 2: lấy og:description
+        og_desc = soup.find("meta", attrs={"property": "og:description"})
+        if og_desc and og_desc.get("content"):
+            return clean_text(og_desc.get("content"))[:280]
+
+        # Cách 3: fallback lấy đoạn văn đầu tiên đủ dài
+        paragraphs = soup.find_all("p")
+        for p in paragraphs:
+            text = clean_text(p.get_text(" ", strip=True))
+            if len(text) > 80:
+                return text[:280]
+
+    except Exception:
+        return ""
+
+    return ""
     response = requests.get(url, headers=HEADERS, timeout=20)
     response.raise_for_status()
     response.encoding = "utf-8"
     return BeautifulSoup(response.text, "html.parser")
+    
 
 
 def extract_articles_from_page(url: str, limit: int = 10):
@@ -85,12 +115,13 @@ def extract_articles_from_page(url: str, limit: int = 10):
         if len(title) < 20:
             continue
 
-        seen_links.add(full_url)
+        summary = extract_article_summary(full_url)
+
         articles.append({
             "title": title,
-            "url": full_url
+             "url": full_url,
+             "summary": summary
         })
-
         if len(articles) >= limit:
             break
 
@@ -132,11 +163,13 @@ def extract_most_read(limit: int = 10):
                     continue
 
                 seen.add(full_url)
+                summary = extract_article_summary(full_url)
+
                 candidates.append({
                     "title": title,
-                    "url": full_url
+                    "url": full_url,
+                    "summary": summary
                 })
-
                 if len(candidates) >= limit:
                     return candidates
 
@@ -151,10 +184,11 @@ def extract_most_read(limit: int = 10):
 
 from datetime import datetime
 
+from datetime import datetime
+
 def build_email_html(data: dict) -> str:
     today = datetime.now().strftime("%d/%m/%Y")
     
-    # Sử dụng icon thanh lịch hơn
     section_icons = {
         "5 bài Kinh tế vĩ mô - Đầu tư": "📊",
         "5 bài Tài chính quốc tế": "🌐",
@@ -162,7 +196,6 @@ def build_email_html(data: dict) -> str:
         "10 bài Đọc nhiều nhất": "⭐",
     }
 
-    # Bắt đầu file HTML
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -179,13 +212,12 @@ def build_email_html(data: dict) -> str:
         -webkit-font-smoothing: antialiased;
     ">
         <div style="
-            max-width: 600px; /* Thu gọn lại 600px để đọc trên điện thoại mượt hơn */
+            max-width: 600px;
             margin: 0 auto;
             padding: 30px 15px;
         ">
-            <!-- Header (Phong cách Thư ký) -->
             <div style="
-                background-color: #0F172A; /* Tone Navy trầm, sang trọng */
+                background-color: #0F172A;
                 border-radius: 12px 12px 0 0;
                 padding: 35px 30px;
                 text-align: left;
@@ -211,7 +243,6 @@ def build_email_html(data: dict) -> str:
                 </h1>
             </div>
 
-            <!-- Lời chào & Tóm tắt -->
             <div style="
                 background-color: #FFFFFF;
                 padding: 25px 30px;
@@ -230,12 +261,10 @@ def build_email_html(data: dict) -> str:
             </div>
     """
 
-    # Vòng lặp cho các section
     for section, articles in data.items():
         icon = section_icons.get(section, "📌")
 
         html += f"""
-            <!-- Khối Section -->
             <div style="
                 background-color: #FFFFFF;
                 padding: 0 30px 20px 30px;
@@ -268,18 +297,17 @@ def build_email_html(data: dict) -> str:
                 </p>
             """
         else:
-            # Dùng Table để số thứ tự và tiêu đề bài báo luôn thẳng hàng (chuẩn email layout)
             html += '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">'
             
             for idx, article in enumerate(articles, start=1):
-                # Format số thành 01, 02, 03... cho sang trọng hơn
                 idx_str = f"{idx:02d}" 
                 
+                # CẬP NHẬT: Thêm phần summary vào ngay dưới title
                 html += f"""
                     <tr>
                         <td valign="top" style="
                             width: 32px;
-                            padding-bottom: 18px;
+                            padding-bottom: 22px; /* Tăng khoảng cách giữa các bài một chút */
                             padding-top: 2px;
                         ">
                             <span style="
@@ -288,7 +316,7 @@ def build_email_html(data: dict) -> str:
                                 color: #CBD5E1;
                             ">{idx_str}.</span>
                         </td>
-                        <td valign="top" style="padding-bottom: 18px;">
+                        <td valign="top" style="padding-bottom: 22px;">
                             <a href="{article['url']}" target="_blank" style="
                                 color: #1F2937;
                                 text-decoration: none;
@@ -296,9 +324,18 @@ def build_email_html(data: dict) -> str:
                                 font-weight: 600;
                                 line-height: 1.5;
                                 display: block;
+                                margin-bottom: 6px; /* Khoảng cách giữa tiêu đề và tóm tắt */
                             ">
                                 {article['title']}
                             </a>
+                            <p style="
+                                margin: 0;
+                                color: #6B7280; /* Màu xám nhạt hơn tiêu đề để tạo phân cấp thị giác */
+                                font-size: 13.5px;
+                                line-height: 1.5;
+                            ">
+                                {article.get('summary', 'Chưa có mô tả ngắn cho bài này.')}
+                            </p>
                         </td>
                     </tr>
                 """
@@ -308,9 +345,7 @@ def build_email_html(data: dict) -> str:
             </div>
         """
 
-    # Footer
     html += """
-            <!-- Footer -->
             <div style="
                 background-color: #F8FAFC;
                 border: 1px solid #E5E7EB;
@@ -325,7 +360,7 @@ def build_email_html(data: dict) -> str:
                     font-size: 12px;
                     line-height: 1.6;
                 ">
-                    Automated Briefing by Python & GitHub Actions<br>
+                    Chúc bạn một ngày tốt lành <br>
                     Data source: CafeF.vn
                 </p>
             </div>
@@ -335,60 +370,3 @@ def build_email_html(data: dict) -> str:
     """
 
     return html
-
-
-def send_email(subject: str, html_body: str):
-    load_dotenv()
-
-    email_from = os.getenv("EMAIL_FROM")
-    email_password = os.getenv("EMAIL_PASSWORD")
-    email_to = os.getenv("EMAIL_TO")
-    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-
-    if not all([email_from, email_password, email_to]):
-        raise ValueError("Thiếu EMAIL_FROM, EMAIL_PASSWORD hoặc EMAIL_TO trong file .env")
-
-    message = MIMEMultipart("alternative")
-    message["From"] = email_from
-    message["To"] = email_to
-    message["Subject"] = subject
-
-    message.attach(MIMEText(html_body, "html", "utf-8"))
-
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()
-        server.login(email_from, email_password)
-        server.sendmail(email_from, email_to, message.as_string())
-
-
-def main():
-    data = {
-        "5 bài Kinh tế vĩ mô - Đầu tư": extract_articles_from_page(
-            PAGES["Kinh tế vĩ mô - Đầu tư"],
-            limit=5
-        ),
-        "5 bài Tài chính quốc tế": extract_articles_from_page(
-            PAGES["Tài chính quốc tế"],
-            limit=5
-        ),
-        "10 bài Tin mới nhất": extract_articles_from_page(
-            PAGES["Tin mới nhất"],
-            limit=10
-        ),
-        "10 bài Đọc nhiều nhất": extract_most_read(
-            limit=10
-        )
-    }
-
-    today = datetime.now().strftime("%d/%m/%Y")
-    subject = f"Điểm báo CafeF sáng {today}"
-
-    html_body = build_email_html(data)
-    send_email(subject, html_body)
-
-    print("Đã gửi email điểm báo CafeF thành công.")
-
-
-if __name__ == "__main__":
-    main()
