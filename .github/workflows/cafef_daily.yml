@@ -2,8 +2,8 @@ name: CafeF Daily Email
 
 on:
   schedule:
-    - cron: "0 1 * * *"   # 8h sáng Việt Nam
-    - cron: "0 20 * * *"  # 8h tối Việt Nam
+    - cron: "0 1 * * *"   # Chạy lúc 8:00 sáng giờ Việt Nam
+    - cron: "0 12 * * *"  # Chạy lúc 7:00 tối giờ Việt Nam
   workflow_dispatch:
 
 env:
